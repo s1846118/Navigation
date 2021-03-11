@@ -8,7 +8,7 @@ What does this script do?
 - This script will return us a 'nice' path plan around the lake by visiting n different points. 
 
 Arguments:
-lochEdge - Path to the GEOJSON file representing the outline of the loch.
+lochEdge - Path to the GEOJSON file representing the outline of the loch. \newline
 startLoc - Coordinates of the starting location of EdVarka
 n - Number of centroids
 loch - Name of loch. When we save geojson files after running script
