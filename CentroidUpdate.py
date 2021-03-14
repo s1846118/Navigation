@@ -83,119 +83,144 @@ def two_opt(route, cost_mat): # 2-opt copied from internet
 # DONE IN MAIN - Write csv file containing the randomly generated points and centroid centers, the will be required for running the algorithm again... ""
 
 # Note we will be changing trash found to csv file...
-def main(lochEdge, loch, n, itteration):
+class centroidUpdate:
 
-    trashFound = [[-3.161460, 55.952601], [-3.160464, 55.953057], [-3.160613, 55.951984], [-3.160931, 55.952591], [-3.161129, 55.951779], [-3.162361, 55.951572]]
+    def __init__(self, lochEdge, loch, n, itteration, trashFound):
 
-    centroids = pd.read_csv(loch + '_centroids.csv').to_numpy()[:,1:]
-    rand_pts = pd.read_csv(loch + '_rand.csv').to_numpy()[:,1:].tolist()
-    init_loc = pd.read_csv(loch + '_startingLoc.csv').to_numpy()[:,1:]
-
-    # Saving starting location as tuple pair...
-    startingLoc = (init_loc.tolist()[0][0], init_loc.tolist()[0][1])
-
-    # Adding the trash
-    for x in range(600):
-        rand_pts.append(trashFound[x % 5])
-    # Convert back to numpy array 
-    x_updated = np.array(rand_pts)
+        self.lochEdge = lochEdge # geojson file     
+        self.loch = loch # String - name of loch 
+        self.n = n # Number of clusters
+        self.itteration = itteration # Number of itterations the boat has made 
+        self.trashFound = trashFound # List of coordinates 
+        #trashFound = [[-3.161460, 55.952601], [-3.160464, 55.953057], [-3.160613, 55.951984], [-3.160931, 55.952591], [-3.161129, 55.951779], [-3.162361, 55.951572]]
 
 
-    # Task 1 + Make GeoJson polygon from list of pts.
-    LakeCords = importLakeCords(lochEdge)
+        centroids = pd.read_csv(self.loch + '_centroids.csv').to_numpy()[:,1:]
+        rand_pts = pd.read_csv(self.loch + '_rand.csv').to_numpy()[:,1:].tolist()
+        init_loc = pd.read_csv(self.loch + '_startingLoc.csv').to_numpy()[:,1:]
+        # trashFound = pd.read_csv() # Read trash found to numpy array of list of list...
 
-    geojsonLakePts = [[]]
-    for cord in LakeCords: 
-        geojsonLakePts[0].append((cord[0], cord[1]))
+        # Saving starting location as tuple pair...
+        startingLoc = (init_loc.tolist()[0][0], init_loc.tolist()[0][1])
 
-    # GeoJson lake as polygon
-    geoJsonLakePoly = GeoPolygon(geojsonLakePts)
+        # Adding the trash
+        for x in range(100*len(trashFound)):
+            rand_pts.append(trashFound[x % len(trashFound)])
+        # Convert back to numpy array 
+        x_updated = np.array(rand_pts)
 
-    # Task 2
-    PointsInLake = x_updated.tolist()
-    # Convert to GEOJSON point
-    ListGeoJsonPts = []
-    for pts in PointsInLake:
-        ListGeoJsonPts.append(geoPt((pts[0], pts[1])))
-    
 
-    # Running KMeans on new data set with trash.
-    kmeans = KMeans(n_clusters = int(n), random_state = 0, max_iter = 1000, init = centroids, n_init=1).fit(x_updated)
+        # Task 1 + Make GeoJson polygon from list of pts.
+        LakeCords = importLakeCords(self.lochEdge)
 
-    # Task 6 - Get centroids and create geojson points from them...
-    centroids = kmeans.cluster_centers_
-    # Creating geojson points
-    geojsonCentroidList = []
-    centroidList = centroids.tolist()
-    for centroid in centroidList:
-        geojsonCentroidList.append(geoPt((centroid[0], centroid[1])))
+        geojsonLakePts = [[]]
+        for cord in LakeCords: 
+            geojsonLakePts[0].append((cord[0], cord[1]))
 
-    # Task 7 - Dictionary to identify each centroid because networkx lib is shit 
-    counter = 0
-    centroid_dict = {}
-    for c in centroidList:
-        centroid_dict[counter] = c
-        counter +=1
+        # GeoJson lake as polygon
+        geoJsonLakePoly = GeoPolygon(geojsonLakePts)
 
-    names = []
-    for num in centroid_dict.keys():
-        names.append(num)
-    table = createDistTable(centroid_dict)
-    
-    #route_finder = RouteFinder(table, names, iterations=20)
-    # Route we will take on journey 1. 
-    #best_distance, best_route = route_finder.solve()
-    best_route = two_opt(names, table)
+        # Task 2
+        PointsInLake = x_updated.tolist()
+        # Convert to GEOJSON point
+        ListGeoJsonPts = []
+        for pts in PointsInLake:
+            ListGeoJsonPts.append(geoPt((pts[0], pts[1])))
+        
 
-    print("The best route for EdVarka to take is: ", best_route)
+        # Running KMeans on new data set with trash.
+        kmeans = KMeans(n_clusters = int(self.n), random_state = 0, max_iter = 1000, init = centroids, n_init=1).fit(x_updated)
 
-    # We now want to make GeoJson line string representing the path EdVarka should be taking 
-    linestrList = []
-    linestrList.append(startingLoc)
-    for node in best_route:
-        linestrList.append((centroid_dict[int(node)][0], centroid_dict[int(node)][1]))
-    linestrGeoJson = GeoPolygon([linestrList])
-    linestrList.append(startingLoc)
+        # Task 6 - Get centroids and create geojson points from them...
+        centroids = kmeans.cluster_centers_
+        # Creating geojson points
+        geojsonCentroidList = []
+        centroidList = centroids.tolist()
+        for centroid in centroidList:
+            geojsonCentroidList.append(geoPt((centroid[0], centroid[1])))
 
-    # For testing we write our list of randomly generated points and lake polygon to GeoJson file.
-    features = []
-    features.append(Feature(geometry=geoJsonLakePoly))
-    # Adding line string path 
-    features.append(Feature(geometry=linestrGeoJson, properties={'fill-opacity':0.0}))
+        # Task 7 - Dictionary to identify each centroid because networkx lib is shit 
+        counter = 0
+        centroid_dict = {}
+        for c in centroidList:
+            centroid_dict[counter] = c
+            counter +=1
 
-    #Add starting location as red marker
-    pt = geoPt((startingLoc[0], startingLoc[1]))
-    features.append(Feature(geometry=pt, properties={'marker-color':'#cc0000'}))
+        names = []
+        for num in centroid_dict.keys():
+            names.append(num)
+        table = createDistTable(centroid_dict)
+        
+        #route_finder = RouteFinder(table, names, iterations=20)
+        # Route we will take on journey 1. 
+        #best_distance, best_route = route_finder.solve()
+        best_route = two_opt(names, table)
 
-    #KEEP THIS TO SHOW THE MARKERS WHICH INITIALISE THE CENTROIDS
-    #for pt in listGeoJsonPts:
-    #   features.append(Feature(geometry=pt))
+        print("The best route for EdVarka to take is: ", best_route)
 
-    for pts in geojsonCentroidList:
-        features.append(Feature(geometry=pts, properties={'marker-color':'#0000ff'}))
+        # We now want to make GeoJson line string representing the path EdVarka should be taking 
+        linestrList = []
+        linestrList.append(startingLoc)
+        for node in best_route:
+            linestrList.append((centroid_dict[int(node)][0], centroid_dict[int(node)][1]))
+        linestrGeoJson = GeoPolygon([linestrList])
+        linestrList.append(startingLoc)
 
-    # Trash on itteration 2
-    for trash in trashFound:
-        pt = geoPt((trash[0], trash[1]))
-        features.append(Feature(geometry=pt, properties={'marker-color':'#ffa500'}))
+        # For testing we write our list of randomly generated points and lake polygon to GeoJson file.
+        features = []
+        features.append(Feature(geometry=geoJsonLakePoly))
+        # Adding line string path 
+        features.append(Feature(geometry=linestrGeoJson, properties={'fill-opacity':0.0}))
 
-    feature_collection = FeatureCollection(features)
+        #Add starting location as red marker
+        pt = geoPt((startingLoc[0], startingLoc[1]))
+        features.append(Feature(geometry=pt, properties={'marker-color':'#cc0000'}))
 
-    # Standard file writing for our geojson
-    with open(itteration + 'thJourney' + loch + '.geojson', 'w') as f:
-        f.seek(0)
-        dump(feature_collection, f)
+        #KEEP THIS TO SHOW THE MARKERS WHICH INITIALISE THE CENTROIDS
+        #for pt in listGeoJsonPts:
+        #   features.append(Feature(geometry=pt))
 
-    # Task 10 - Standar file writing for saving our centroid centers, data set X and exact path taken(Not needed as path probably will change).
-    random_df = pd.DataFrame(data = x_updated)
-    centroids_df = pd.DataFrame(data = centroids, columns=['lng', 'lat'])
-    # Add pandas df of starting loc...
-    cordStartLoc = np.array([startingLoc[0], startingLoc[1]]).reshape(1,2)
-    initial_df = pd.DataFrame(data = cordStartLoc)
+        for pts in geojsonCentroidList:
+            features.append(Feature(geometry=pts, properties={'marker-color':'#0000ff'}))
 
-    random_df.to_csv(loch + '_rand.csv') # We update the centroid points with trash added for any future itterations. 
-    centroids_df.to_csv(loch + '_centroids.csv')
+        # Trash on itteration 2
+        for trash in trashFound:
+            pt = geoPt((trash[0], trash[1]))
+            features.append(Feature(geometry=pt, properties={'marker-color':'#ffa500'}))
+
+        feature_collection = FeatureCollection(features)
+
+        # We need to add a single polygon representing the points we want to visit on our path plan 
+        path_plan = []
+        path_plan.append(Feature(geometry=linestrGeoJson, properties={'fill-opacity':0.0}))
+        path_plan_fc = FeatureCollection(path_plan)
+
+        # Standard file writing for our geojson path to follow
+        #file_to_write = str(itteration) + 'thPathPlan' + self.loch + '.geojson'
+        #with open(file_to_write, 'w') as f:
+        #    f.seek(0)
+        #    dump(path_plan_fc, f)
+
+        # Standard file writing for our geojson
+        #with open(str(self.itteration) + 'thJourney' + self.loch + '.geojson', 'w') as f:
+        #    f.seek(0)
+        #    dump(feature_collection, f)
+
+        # Task 10 - Standar file writing for saving our centroid centers, data set X and exact path taken(Not needed as path probably will change).
+        random_df = pd.DataFrame(data = x_updated)
+        centroids_df = pd.DataFrame(data = centroids, columns=['lng', 'lat'])
+        # Add pandas df of starting loc...
+        cordStartLoc = np.array([startingLoc[0], startingLoc[1]]).reshape(1,2)
+        initial_df = pd.DataFrame(data = cordStartLoc)
+
+        random_df.to_csv(self.loch + '_rand.csv') # We update the centroid points with trash added for any future itterations. 
+        centroids_df.to_csv(self.loch + '_centroids.csv')
+
+        self.centroidList = centroidList
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    #main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    trashFound = [[-3.161460, 55.952601], [-3.160464, 55.953057], [-3.160613, 55.951984], [-3.160931, 55.952591], [-3.161129, 55.951779], [-3.162361, 55.951572]]
+    x = centroidUpdate("StMargaretsEdge.geojson", "StMargarets", 10, 2, trashFound)
+    print(x.centroidList)
